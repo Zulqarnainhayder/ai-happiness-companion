@@ -20,13 +20,34 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
+from app.services.auth import create_refresh_token
+from app.models.auth import RefreshTokenRequest
+
 @router.post("/login", response_model=Token)
 def login(data: LoginRequest, db: Session = Depends(get_db)):
     user = authenticate_user(data.username, data.password, db)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     access_token = create_access_token({"sub": user.email})
-    return {"access_token": access_token, "token_type": "bearer"}
+    refresh_token = create_refresh_token({"sub": user.email})
+    return {"access_token": access_token, "token_type": "bearer", "refresh_token": refresh_token}
+
+@router.post("/refresh", response_model=Token)
+def refresh_token(request: RefreshTokenRequest):
+    from jose import jwt, JWTError
+    import os
+    SECRET_KEY = os.getenv("SECRET_KEY")
+    ALGORITHM = os.getenv("ALGORITHM", "HS256")
+    try:
+        payload = jwt.decode(request.refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "refresh":
+            raise HTTPException(status_code=401, detail="Invalid refresh token type")
+        email = payload.get("sub")
+        access_token = create_access_token({"sub": email})
+        new_refresh_token = create_refresh_token({"sub": email})
+        return {"access_token": access_token, "token_type": "bearer", "refresh_token": new_refresh_token}
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
 
 @router.post("/forgot-password")
 def forgot_password(request: ResetPasswordRequest):

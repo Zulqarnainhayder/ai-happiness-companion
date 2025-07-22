@@ -54,6 +54,13 @@ def create_access_token(data: dict, expires_delta: timedelta = timedelta(minutes
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
+def create_refresh_token(data: dict, expires_delta: timedelta = timedelta(days=7)):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + expires_delta
+    to_encode.update({"exp": expire, "type": "refresh"})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+
 def get_current_user(token: str = Depends(lambda: None)):
     from fastapi.security import OAuth2PasswordBearer
     oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
