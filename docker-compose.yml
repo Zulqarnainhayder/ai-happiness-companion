@@ -17,8 +17,8 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     volumes:
       - ./backend/app:/app/app
-    environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/ai_happiness_db
+    env_file:
+      - ./backend/.env
     ports:
       - "8000:8000"
     depends_on:

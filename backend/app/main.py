@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from dotenv import load_dotenv
+load_dotenv()
 from app.api.auth import router as auth_router
 from app.core.database import Base, engine
 from app.models.db_models import User

@@ -8,9 +8,10 @@ from app.models.auth import UserCreate
 from app.models.db_models import User
 from app.core.database import get_db
 
-SECRET_KEY = "CHANGE_THIS_SECRET_KEY"  # Change in production!
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+import os
+SECRET_KEY = os.getenv("SECRET_KEY")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
