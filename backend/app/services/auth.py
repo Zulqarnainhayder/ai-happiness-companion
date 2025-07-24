@@ -43,49 +43,52 @@ def authenticate_user(username_or_email: str, password: str, db: Session):
         return None
     return user
 
-    user = fake_db.get(email)
-    if not user or not verify_password(password, user["password"]):
-        return None
-    return user
 
-def create_access_token(data: dict, expires_delta: timedelta = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)):
-    to_encode = data.copy()
+def create_access_token(user: User, expires_delta: timedelta = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)):
+    to_encode = {"sub": str(user.id)}
     expire = datetime.utcnow() + expires_delta
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-def create_refresh_token(data: dict, expires_delta: timedelta = timedelta(days=7)):
-    to_encode = data.copy()
+def create_refresh_token(user: User, expires_delta: timedelta = timedelta(days=7)):
+    to_encode = {"sub": str(user.id)}
     expire = datetime.utcnow() + expires_delta
     to_encode.update({"exp": expire, "type": "refresh"})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
-def get_current_user(token: str = Depends(lambda: None)):
-    from fastapi.security import OAuth2PasswordBearer
-    oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
-    token = Depends(oauth2_scheme)()
+from fastapi.security import OAuth2PasswordBearer
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email = payload.get("sub")
-        if email is None or email not in fake_db:
+        user_id = payload.get("sub")
+        if user_id is None:
             raise HTTPException(status_code=401, detail="Invalid user")
-        return {"email": email}
+        user = db.query(User).filter(User.id == int(user_id)).first()
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        return user
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-def forgot_password_token(email: EmailStr):
-    if email not in fake_db:
+def forgot_password_token(email: EmailStr, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
         raise HTTPException(status_code=404, detail="Email not found")
     reset_token = create_access_token({"sub": email}, expires_delta=timedelta(minutes=10))
     return reset_token
 
-def reset_password(token: str, new_password: str):
+def reset_password(token: str, new_password: str, db: Session = Depends(get_db)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email = payload.get("sub")
-        if email not in fake_db:
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
             raise HTTPException(status_code=404, detail="Invalid token or email")
-        fake_db[email]["password"] = hash_password(new_password)
+        user.hashed_password = hash_password(new_password)
+        db.commit()
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")

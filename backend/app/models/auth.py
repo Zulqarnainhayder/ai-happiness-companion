@@ -19,6 +19,7 @@ class RefreshTokenRequest(BaseModel):
     refresh_token: str
 
 class UserOut(BaseModel):
+    username: str
     email: EmailStr
 
 class ResetPasswordRequest(BaseModel):
